@@ -1,0 +1,10 @@
+Gooey
+loguru
+pedalboard
+
+black
+isort
+ruff
+
+nuitka
+pyinstaller
