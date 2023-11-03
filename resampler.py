@@ -7,7 +7,9 @@ from pedalboard import Limiter, LowpassFilter, Mix, Pedalboard
 from pedalboard.io import AudioFile
 
 
-def transcode(audio_bytes: bytes, sample_rate: int = 48000) -> bytes:
+def transcode(
+    audio_bytes: bytes, sample_rate: int = 48000, filter: bool = True
+) -> bytes:
     result = BytesIO()
     try:
         with AudioFile(BytesIO(audio_bytes), "r") as audio_file:
@@ -17,7 +19,7 @@ def transcode(audio_bytes: bytes, sample_rate: int = 48000) -> bytes:
                 sample_rate = audio_samplerate
             if sample_rate <= audio_samplerate:
                 audio_data = audio_file.read(audio_file.frames)
-                if sample_rate < audio_samplerate:
+                if filter and (sample_rate < audio_samplerate):
                     board = Pedalboard([LowpassFilter(sample_rate / 2)])
                     intermediate_data = board(audio_data, audio_file.samplerate)
                     intermediate_file = BytesIO()
@@ -35,7 +37,8 @@ def transcode(audio_bytes: bytes, sample_rate: int = 48000) -> bytes:
                     sample_rate
                 ) as resampled_file:
                     audio_data = resampled_file.read(resampled_file.frames)
-                boards_mix.append(LowpassFilter(audio_samplerate / 2))
+                if filter:
+                    boards_mix.append(LowpassFilter(audio_samplerate / 2))
             if boards_mix:
                 boards = [Mix(boards_mix), Limiter(0)]
                 board = Pedalboard(boards)
@@ -59,11 +62,12 @@ def main():
         choices=["48000", "24000", "16000", "8000"],
         default="48000",
     )
+    parser.add_argument("--filter", default=True, action="store_true")
     args = parser.parse_args()
 
     for wav_file in Path(args.SourcePath).glob("*.wav"):
         src = open(str(wav_file), "rb").read()
-        tgt = transcode(src, int(args.SamplingRate))
+        tgt = transcode(src, int(args.SamplingRate), args.filter)
         with open(str(Path(args.TargetPath) / wav_file.name), "wb") as f:
             f.write(tgt)
 
